@@ -1,0 +1,73 @@
+name: Redaktionskonferenz
+
+# Zwei Auslöser: Knopf (Actions → Run workflow) oder Kommentar „@claude Konferenz“ in einem Issue.
+on:
+  workflow_dispatch:
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: konferenz
+  cancel-in-progress: false
+
+jobs:
+  konferenz:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.issue.pull_request == null &&
+       contains(github.event.comment.body, '@claude Konferenz') &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Datum
+        id: datum
+        run: echo "heute=$(TZ=Europe/Berlin date +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Quellen abrufen (ohne KI)
+        run: python3 .github/scripts/quellen.py
+
+      - name: Konferenz (KI)
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: "Konferenz. Folge CLAUDE.md, Abschnitt Redaktionskonferenz. Heute ist der ${{ steps.datum.outputs.heute }}."
+          claude_args: >-
+            --model claude-sonnet-5
+            --max-turns 12
+            --allowedTools "Read,Write,Edit,Glob,Grep"
+
+      - name: Pull Request anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          datum="${{ steps.datum.outputs.heute }}"
+          branch="konferenz-${datum}-${{ github.run_number }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add konferenz posts lagebild/eingang.md
+          if git diff --cached --quiet; then
+            echo "Keine Änderungen, kein Pull Request."
+            exit 0
+          fi
+          git commit -m "Redaktionskonferenz ${datum}"
+          git push origin "$branch"
+          body="Lagebild und Vorschläge in \`konferenz/${datum}.md\`, Entwürfe in \`posts/\`.
+
+          Kommentieren mit \`@claude …\` überarbeitet. Mergen heißt freigeben."
+          url=$(gh pr create --title "Redaktionskonferenz ${datum}" --body "$body" --head "$branch" --base main)
+          echo "PR: $url"
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            gh issue comment ${{ github.event.issue.number }} --body "Konferenz fertig: $url"
+          fi
