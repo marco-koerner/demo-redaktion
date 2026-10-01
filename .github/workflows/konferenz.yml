@@ -41,10 +41,14 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          prompt: "Konferenz. Folge CLAUDE.md, Abschnitt Redaktionskonferenz. Heute ist der ${{ steps.datum.outputs.heute }}."
+          prompt: >-
+            Konferenz. Heute ist der ${{ steps.datum.outputs.heute }}. Folge CLAUDE.md, Abschnitt Redaktionskonferenz.
+            Arbeite sparsam: Lies genau diese Dateien je einmal: strategie.md, themen.md, lagebild/eingang.md, posts/vorlage.md;
+            verschaffe dir mit einem einzigen Glob über posts/*.md und konferenz/*.md einen Überblick über Bisheriges.
+            Keine Shell, keine weiteren Dateien. Schreibe dann die Konferenzdatei und je Vorschlag eine Postdatei.
           claude_args: >-
             --model claude-sonnet-5
-            --max-turns 12
+            --max-turns 20
             --allowedTools "Read,Write,Edit,Glob,Grep"
 
       - name: Pull Request anlegen
