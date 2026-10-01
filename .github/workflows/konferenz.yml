@@ -55,6 +55,10 @@ jobs:
           branch="konferenz-${datum}-${{ github.run_number }}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Die KI-Action hinterlässt eigene, inzwischen ungültige Git-Zugangsdaten; für den Push gilt wieder das Workflow-Token.
+          git config --local --unset-all http.https://github.com/.extraheader || true
+          git config --local --unset-all credential.helper || true
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
           git checkout -b "$branch"
           git add konferenz posts lagebild/eingang.md
           if git diff --cached --quiet; then
