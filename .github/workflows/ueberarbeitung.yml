@@ -1,0 +1,33 @@
+name: Überarbeitung
+
+# „@claude …“ als Kommentar in einem Pull Request: Die KI überarbeitet auf dessen Branch.
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  ueberarbeiten:
+    if: >-
+      contains(github.event.comment.body, '@claude') &&
+      (github.event_name == 'pull_request_review_comment' || github.event.issue.pull_request != null) &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: >-
+            --model claude-sonnet-5
+            --max-turns 8
